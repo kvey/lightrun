@@ -1,0 +1,461 @@
+<html>
+  <head>
+    <style>
+      body{
+        overflow: hidden;
+        background: #000;
+
+      }
+      .layer{
+        z-index: 3000;
+      }
+      #score{
+        font-family: Helvetica;
+        color: #FFF;
+      }
+
+    </style>
+
+  </head>
+  <body>
+    <div class="layer"><h2 id="score"></h2></div>
+  </body>
+
+<script src="./Three.js"></script>
+<script>
+
+  var theta = 45;
+  var phi = 20;
+  var dist = 700;
+
+  var Spite = {};
+
+  Spite.ControlSet = function(obj){
+    this.mouseMove = obj.mouseMove;
+    this.mouseDown = obj.mouseDown;
+    this.mouseUp = obj.mouseUp;
+    this.mouseScroll = obj.mouseScroll;
+    this.keyDown = obj.keyDown;
+    this.keyUp = obj.keyUp;
+  };
+
+  Spite.Engine = function(){
+    //Elements
+    this.lights = {};
+
+    //Objects
+    this.actors = {};
+    this.pawns = {};
+    this.controllers = {};
+
+    //Input
+    this.keyboard = {};
+    this.mouse = new THREE.Vector3(0, 10000, 0.5);
+    this.mouse.isDownPosition = {};
+    document.addEventListener('mousemove', window.mouseMove, false);
+    document.addEventListener('mousedown', window.mouseDown, false);
+    document.addEventListener('mouseup', window.mouseUp, false);
+    document.addEventListener('mousewheel', window.mouseScroll, false);
+    document.addEventListener('keydown', window.keyDown, false);
+    document.addEventListener('keyup', window.keyUp, false);
+
+    //Scene
+    this.scene = new THREE.Scene();
+
+    //Projector
+    this.projector = new THREE.Projector();
+
+    //Camera
+    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/ window.innerHeight, 1, 32000);
+    this.camera.position.y = 150;
+    this.camera.position.x = 200;
+    this.camera.position.z = 500;
+    this.camera.position.x = dist * Math.sin(theta * Math.PI / 360 );
+    this.camera.position.y = dist * Math.sin(phi * Math.PI / 360 );
+    this.camera.position.z = dist * Math.cos(theta * Math.PI / 360 );
+
+    this.cameraTarget = new THREE.Vector3(0, 0, 0);
+    this.camera.lookAt(this.cameraTarget);
+    this.scene.add(this.camera);
+
+    //Renderer
+    var renderer = new THREE.WebGLRenderer({antialias: true/*, preserveDrawingBuffer: true*/, maxLights: 8});
+    //var renderer = new THREE.CanvasRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer = renderer;
+
+    //Create Render Area
+    document.body.appendChild(renderer.domElement);
+  };
+
+  Spite.Engine.prototype = {
+    update: function(){
+    },
+
+    render: function(){
+      this.renderer.render(this.scene, this.camera);
+    },
+
+    mapControlSet: function(controlSet){
+      this.mouseMove = controlSet.mouseMove;
+      this.mouseDown = controlSet.mouseDown;
+      this.mouseUp = controlSet.mouseUp;
+      this.mouseScroll = controlSet.mouseScroll;
+      this.keyDown = controlSet.keyDown;
+      this.keyUp = controlSet.keyUp;
+    },
+
+    addPawn: function(obj, name){
+      this.scene.add(obj);
+      this.pawns[name] = obj;
+    },
+
+    addLight: function(obj){
+      this.scene.add(obj);
+    },
+  };
+
+
+  var Game = function(engine){
+    //Initialize game environment
+
+    //Light
+/*    var directionalLight = new THREE.DirectionalLight(0xAAAAAA);
+    directionalLight.position.set(0, 0.75, 0.5).normalize();
+    engine.addLight(directionalLight);
+    */
+
+    //Controls
+    var controls = new Spite.ControlSet({
+      mouseMove: function(event){
+        this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        this.mouse.y = (event.clientY / window.innerHeight) * 2 + 1;
+
+      },
+
+      mouseDown: function(event){
+        this.mouse.isDown = true;
+        this.mouse.isDownPosition.phi = phi;
+        this.mouse.isDownPosition.theta = theta;
+        this.mouse.isDownPosition.x = event.clientX;
+        this.mouse.isDownPosition.y = event.clientY;
+      },
+
+      mouseUp: function(event){
+        this.mouse.isDown = false;
+      },
+
+      mouseScroll: function(event){
+        dist -= event.wheelDeltaY;
+        if(dist < 0){
+          dist = 0;
+        }
+      },
+
+      keyDown: function(event){
+        switch(event.keyCode){
+          case 16: this.keyboard.isShiftDown = true; break;
+          case 17: this.keyboard.isCtrlDown = true; break;
+          case 37: this.keyboard['left'] = true; break;
+          case 39: this.keyboard['right'] = true; break;
+          case 38: this.keyboard['up'] = true; break;
+          case 40: this.keyboard['down'] = true; break;
+          case 65: this.keyboard['a'] = true; break;
+          case 68: this.keyboard['d'] = true; break;
+          case 87: this.keyboard['w'] = true; break;
+          case 83: this.keyboard['s'] = true; break;
+        }
+      },
+
+      keyUp: function(event){
+        switch(event.keyCode){
+          case 16: this.keyboard.isShiftDown = false; break;
+          case 17: this.keyboard.isCtrlDown = false; break;
+          case 37: this.keyboard['left'] = false; break;
+          case 39: this.keyboard['right'] = false; break;
+          case 38: this.keyboard['up'] = false; break;
+          case 40: this.keyboard['down'] = false; break;
+          case 65: this.keyboard['a'] = false; break;
+          case 68: this.keyboard['d'] = false; break;
+          case 87: this.keyboard['w'] = false; break;
+          case 83: this.keyboard['s'] = false; break;
+        }
+      }
+
+    });
+
+    //Character
+    //var charGeo = new THREE.CubeGeometry(40,30,50);
+    var charGeo = new THREE.SphereGeometry(20,30,20);
+    var charMat = new THREE.MeshLambertMaterial({color: 0x000000, ambient: 0x000000, shading: THREE.SmoothShading, wireframe: true});
+    charMat.color.setRGB(1.0, 0.2, 0.2);
+    charMat.ambient = charMat.color;
+    var charMesh = new THREE.Mesh(charGeo, charMat);
+    charMesh.rotation.z = -90 * Math.PI / 180;
+    engine.addPawn(charMesh, 'character');
+    engine.pawns['character'].position.x = 200;
+    engine.pawns['character'].position.z = 450;
+    engine.pawns['character'].scale.z = 1.8;
+    engine.pawns['character'].state = 'red';
+
+
+    //Grid
+    this.planes = [];
+    var planePos = 0;
+
+    for(var i=0 ; i<2 ; i++){
+      var plane = new THREE.Mesh(new THREE.PlaneGeometry(1000, 32000, 10, 40), new THREE.MeshLambertMaterial({color: 0x333333, wireframe: true}));
+      plane.rotation.x = -90 * Math.PI / 180;
+      this.planes.push(plane);
+      var target = this.planes.length - 1;
+      this.planes[target].position.z = planePos;
+      this.planes[target].position.y = -20;
+      engine.scene.add(this.planes[target]);
+      planePos += 32000;
+    }
+
+    this.enMatRed = new THREE.MeshLambertMaterial({color: 0x000000, ambient: 0x000000, shading: THREE.FlatShading, wireframe: true});
+    this.enMatGreen = new THREE.MeshLambertMaterial({color: 0x000000, ambient: 0x000000, shading: THREE.FlatShading, wireframe: false});
+
+    this.enMatRed.color.setRGB(1.0, 0.2, 0.2);
+    this.enMatRed.ambient = this.enMatRed.color;
+
+    this.enMatGreen.color.setRGB(0.2, 1.0, 0.2);
+    this.enMatGreen.ambient = this.enMatGreen.color;
+
+    this.obstacles = [];
+    this.chance = 50;
+    this.rate = 115;
+    this.counter = 0;
+    this.score = 0;
+
+    this.obstacleCounter = 0;
+
+    this.lights = [];
+    var lightDist = 500;
+    for(var i=0 ; i<8 ; i++){
+      var light = new THREE.PointLight(0xffffff, 4, 2000);
+      light.position.z = lightDist;
+      light.position.y = 400;
+      this.lights.push(light);
+      var target = this.lights.length - 1;
+      engine.scene.add(this.lights[target]);
+      lightDist -= 3000;
+    }
+
+    engine.mapControlSet(controls);
+
+    this.clock = new THREE.Clock();
+
+    this.engine = engine;
+  };
+
+  Game.prototype = {
+    updateProduceObstacleMesh: function(enMesh, pos){
+          enMesh.position.x = pos;
+          enMesh.position.z = -32000;
+          enMesh.position.y = 20;
+          this.obstacleCounter++;
+          this.obstacles[this.obstacleCounter] = enMesh;
+          this.engine.scene.add(this.obstacles[this.obstacleCounter]);
+    },
+    updateObstacleGenerator: function(){
+      this.counter += this.clock.getDelta();
+      if(this.counter > this.chance){
+        this.counter = 0;
+        var enGeo = new THREE.CubeGeometry(40,50,this.rate * 3);
+        var enMesh;
+        for(var pos = 100; pos <= 300 ; pos+=100){
+          var trying = Math.random();
+          if(trying >= 0.66){
+            enMesh = new THREE.Mesh(enGeo, this.enMatGreen)
+            this.updateProduceObstacleMesh(enMesh, pos);
+          }else if(trying < 0.66 && trying >= 0.33){
+            enMesh = new THREE.Mesh(enGeo, this.enMatRed)
+            this.updateProduceObstacleMesh(enMesh, pos);
+          }
+        }
+      }
+    },
+    updateObstacles: function(){
+      for(var i in this.obstacles){
+        this.obstacles[i].position.z += this.rate;
+        if (this.obstacles[i].position.z - (20 * this.obstacles[i].scale.z) <= (this.engine.pawns['character'].position.z + (20 * this.engine.pawns['character'].scale.z)) &&
+            this.obstacles[i].position.z + (20 * this.obstacles[i].scale.z) >= (this.engine.pawns['character'].position.z - (20 * this.engine.pawns['character'].scale.z))){
+          if( this.obstacles[i].position.x == this.engine.pawns['character'].position.x){
+            if(this.obstacles[i].state == this.engine.pawns['character'].state){
+              this.score += Math.floor(this.rate);
+              }else{
+              console.log("game over");
+            }
+          }else{
+            this.score += Math.floor(2 * this.rate);
+          }
+        }
+        if(this.obstacles[i].position.z > 1000){
+          this.engine.scene.remove(this.obstacles[i]);
+          delete(this.obstacles[i]);
+        }
+      }
+    },
+    updateLights: function(){
+      for(var i in this.lights){
+        this.lights[i].position.z += (this.rate / 2);
+        if(this.lights[i].position.z > 2000){
+          this.lights[i].position.z = -14000;
+          this.lights[i].position.x = Math.floor(Math.random()*300);
+        }
+      }
+    },
+    updatePlanes: function(){
+      for(var i in this.planes){
+        this.planes[i].position.z -= (this.rate / 8);
+        this.planes[i].scale.z += (this.rate / 8);
+        if(this.planes[i].position.z < -32000){
+          this.planes[i].position.z = 32000;
+        }
+      }
+    },
+    updateConstrainCharacter: function(){
+      if(this.engine.pawns['character'].position.x > 300){
+        this.engine.pawns['character'].position.x = 300;
+      }
+      if(this.engine.pawns['character'].position.x < 100){
+        this.engine.pawns['character'].position.x = 100;
+      }
+      if(this.engine.pawns['character'].position.z > 500){
+        this.engine.pawns['character'].position.z = 500;
+      }
+      if(this.engine.pawns['character'].scale.z < 1){
+        this.engine.pawns['character'].scale.z = 1;
+      }
+      if(this.engine.camera.position.x > 292){
+        this.engine.camera.position.x = 292.87;
+      }
+      if(this.engine.camera.position.x < 242){
+        this.engine.camera.position.x = 242;
+      }
+    },
+    updateInput: function(){
+      // Left Key
+      if(this.engine.keyboard.left){
+        this.engine.pawns['character'].position.x -= 100;
+        this.engine.camera.position.x -= 25;
+        this.engine.keyboard.left = false;
+      }
+      // Right Key
+      if(this.engine.keyboard.right){
+        this.engine.pawns['character'].position.x += 100;
+        this.engine.camera.position.x += 25;
+        this.engine.keyboard.right = false;
+      }
+      // Up Key
+      if(this.engine.keyboard.up){
+        this.chance -= 0.05;
+        this.rate += 0.2;
+        this.engine.pawns['character'].scale.z += 0.005;
+        this.engine.pawns['character'].position.z -= 0.4;
+      }else{
+        this.rate -= 0.2;
+        if(this.rate < 10){
+          this.rate = 10;
+        }
+        this.engine.pawns['character'].scale.z -= 0.005;
+        this.engine.pawns['character'].position.z += 0.4;
+      }
+      // Down Key
+      if(this.engine.keyboard.down){
+        this.rate -= 0.8;
+        if(this.rate < 10){
+          this.rate = 10;
+        }
+        this.engine.pawns['character'].scale.z -= 0.02;
+        this.engine.pawns['character'].position.z += 0.8;
+      }
+      // W key
+      if(this.engine.keyboard.w){
+        for(var i in this.obstacles){
+          this.obstacles[i].material.wireframe = !this.obstacles[i].material.wireframe;
+        }
+        if(this.engine.pawns['character'].state == 'red'){
+          this.engine.pawns['character'].material.color.r = 0.2;
+          this.engine.pawns['character'].material.color.g = 1.0;
+          this.engine.pawns['character'].state = 'green';
+          this.enMatGreen.wireframe = true;
+          this.enMatRed.wireframe = false;
+        }else{
+          this.engine.pawns['character'].material.color.r = 1.0;
+          this.engine.pawns['character'].material.color.g = 0.2;
+          this.engine.pawns['character'].state = 'red';
+          this.enMatGreen.wireframe = false;
+          this.enMatRed.wireframe = true;
+        }
+        this.engine.keyboard.w = false;
+      }
+    },
+    update: function(){
+      this.updateObstacleGenerator();
+      this.updateObstacles();
+      this.updateLights();
+      this.updatePlanes();
+      this.engine.pawns['character'].position.y = Math.sin(this.clock.elapsedTime * (this.rate/ 200)) * (150 / this.rate);
+      this.updateInput();
+      this.updateConstrainCharacter();
+
+      // Game iteration
+      this.chance -= 0.001;
+      if(this.chance < 40){
+        this.chance = 40;
+      }
+
+      this.counter += 1;
+      document.getElementById("score").innerHTML = this.score + "";
+    },
+  };
+
+
+  window.mouseMove = function(event){
+    event.preventDefault();
+    window.game.engine.mouseMove(event);
+  };
+
+  window.mouseDown = function(event){
+    event.preventDefault();
+    window.game.engine.mouseDown(event);
+  };
+
+  window.mouseUp = function(event){
+    event.preventDefault();
+    window.game.engine.mouseUp(event);
+  };
+
+  window.mouseScroll = function(event){
+    event.preventDefault();
+    window.game.engine.mouseScroll(event);
+  };
+
+  window.keyDown = function(event){
+    event.preventDefault();
+    window.game.engine.keyDown(event);
+  };
+
+  window.keyUp = function(event){
+    event.preventDefault();
+    window.game.engine.keyUp(event);
+  };
+
+  window.runLoop = function(event){
+    requestAnimationFrame(window.runLoop);
+    window.game.update();
+    window.game.engine.update();
+    window.game.engine.render();
+  };
+
+  var engine = new Spite.Engine();
+  var game = new Game(engine);
+  window.runLoop();
+
+
+
+</script>
+</html>
